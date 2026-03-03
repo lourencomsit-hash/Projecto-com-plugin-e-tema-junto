@@ -3,7 +3,7 @@ from PIL import Image
 
 theme_dir = os.path.normpath("c:/Projetos/Breeze Safaris/Website para WP/breeze-claude-theme")
 photos_dir = os.path.join(theme_dir, "assets", "media", "photos")
-out_zip = "c:/Projetos/Breeze Safaris/zips/breeze-claude-theme-v5.0.zip"
+out_zip = "c:/Projetos/Breeze Safaris/zips/breeze-claude-theme-v5.1.zip"
 
 # Compress JPGs in-memory (keyed by normpath)
 compressed = {}

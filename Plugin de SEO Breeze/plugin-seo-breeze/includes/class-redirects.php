@@ -33,52 +33,95 @@ class Breeze_SEO_Redirects {
 	}
 
 	public function init() {
-		add_action( 'template_redirect', array( $this, 'handle_redirect' ), 1 );
+		// Hook redirects on 'init' priority 1 — fires before cache plugins and before
+		// template_redirect, so the redirect is always sent even on cached pages.
+		add_action( 'init', array( $this, 'handle_redirect' ), 1 );
+		// 404 logging requires is_404() which is only available after query setup.
+		add_action( 'template_redirect', array( $this, 'log_404_check' ), 10 );
 	}
 
 	// ── Intercept requests ────────────────────────────────────────────────────
 
 	public function handle_redirect() {
-		if ( is_admin() ) {
+		// Skip WP admin and WP-Cron requests.
+		if ( is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
 			return;
 		}
 
 		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
 		$path        = parse_url( $request_uri, PHP_URL_PATH );
 
-		if ( empty( $path ) ) {
+		if ( empty( $path ) || '/' === $path ) {
 			return;
 		}
 
-		// Normalise: ensure trailing slash for lookup
 		$path_with_slash    = rtrim( $path, '/' ) . '/';
 		$path_without_slash = rtrim( $path, '/' );
 
-		// Check with trailing slash first, then without
+		// 1. Try DB lookup (trailing slash, then without, then exact).
 		$redirect = $this->find_redirect( $path_with_slash );
 		if ( ! $redirect ) {
 			$redirect = $this->find_redirect( $path_without_slash );
 		}
 		if ( ! $redirect ) {
-			// Also try exact match as stored (may have no trailing slash)
 			$redirect = $this->find_redirect( $path );
 		}
 
 		if ( $redirect ) {
-			$target_url = $this->build_target_url( $redirect->url_new );
-			// Avoid self-redirect loops (e.g. /pt → /pt/)
+			$target_url  = $this->build_target_url( $redirect->url_new );
 			$target_path = parse_url( $target_url, PHP_URL_PATH );
-			if ( $target_path === $path || $target_path === $path_with_slash || $target_path === $path_without_slash ) {
-				return;
+			if ( $target_path === $path ) {
+				return; // avoid self-redirect
 			}
 			$this->increment_hits( (int) $redirect->id );
-			wp_redirect( $target_url, (int) $redirect->redirect_type );
-			exit;
+			$this->do_redirect( $target_url, (int) $redirect->redirect_type );
 		}
 
-		// Log 404s to crawl log (keep log lean: only if referrer exists)
-		if ( is_404() && ! empty( $_SERVER['HTTP_REFERER'] ) ) {
-			$this->log_404( $path );
+		// 2. Fallback hardcoded map (safety net when DB table is empty).
+		$static_map = array(
+			'/project/'                                 => '/',
+			'/project/serengeti-national-park/'         => '/serengeti-national-park/',
+			'/project/ngorongoro-conservation-area/'    => '/ngorongoro-conservation-area/',
+			'/project/tarangire-national-park/'         => '/tarangire-national-park/',
+			'/project/lake-manyara-national-park/'      => '/lake-manyara-national-park/',
+			'/project/arusha-national-park/'            => '/arusha-national-park/',
+			'/project/ndutu-area/'                      => '/ndutu-area/',
+			'/project/zanzibar/'                        => '/zanzibar/',
+			'/tanzania-safari-experts/'                 => '/about/',
+			'/cookie-policy-eu/'                        => '/privacy-policy/',
+			'/pt/especialistas-portugueses-em-safaris/' => '/pt/sobre-nos/',
+			'/pt/contacte-nos/'                         => '/pt/contacto/',
+			'/pt'                                       => '/pt/',
+		);
+
+		$target = $static_map[ $path_with_slash ] ?? $static_map[ $path_without_slash ] ?? $static_map[ $path ] ?? null;
+		if ( $target && $target !== $path && $target !== $path_with_slash ) {
+			$this->do_redirect( home_url( $target ), 301 );
+		}
+	}
+
+	/**
+	 * Send a redirect using direct header() call (bypasses wp_redirect filters).
+	 */
+	private function do_redirect( $url, $status = 301 ) {
+		$url = esc_url_raw( $url );
+		header( 'Location: ' . $url, true, $status );
+		header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+		exit;
+	}
+
+	/**
+	 * Log 404s — runs on template_redirect where is_404() is available.
+	 */
+	public function log_404_check() {
+		if ( is_404() ) {
+			$path = parse_url(
+				isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/',
+				PHP_URL_PATH
+			);
+			if ( $path ) {
+				$this->log_404( $path );
+			}
 		}
 	}
 

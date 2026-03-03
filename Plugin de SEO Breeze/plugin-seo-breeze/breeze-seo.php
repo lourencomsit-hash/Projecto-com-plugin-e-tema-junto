@@ -3,7 +3,7 @@
  * Plugin Name: Breeze Safaris SEO
  * Plugin URI:  https://breezesafaris.com
  * Description: SEO completo para breezesafaris.com — meta tags, redirects 301, sitemap XML, schema JSON-LD, auditoria e migração de dados do tema anterior.
- * Version:     3.3.0
+ * Version:     3.4.0
  * Author:      Breeze Safaris
  * Author URI:  https://breezesafaris.com
  * License:     GPLv2 or later
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-define( 'BREEZE_SEO_VERSION', '3.3.0' );
+define( 'BREEZE_SEO_VERSION', '3.4.0' );
 define( 'BREEZE_SEO_FILE',    __FILE__ );
 define( 'BREEZE_SEO_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'BREEZE_SEO_URL',     plugin_dir_url( __FILE__ ) );
@@ -34,6 +34,7 @@ register_uninstall_hook( __FILE__,    'bseo_uninstall' );
 
 function bseo_activate() {
 	bseo_create_tables();
+	bseo_seed_redirects();
 	// Schedule sitemap ping
 	if ( ! wp_next_scheduled( 'bseo_ping_sitemap_cron' ) ) {
 		wp_schedule_event( time(), 'daily', 'bseo_ping_sitemap_cron' );
@@ -42,6 +43,58 @@ function bseo_activate() {
 	$defaults = bseo_default_settings();
 	$existing = get_option( 'breeze_seo_settings', array() );
 	update_option( 'breeze_seo_settings', array_merge( $defaults, $existing ) );
+}
+
+/**
+ * Seed the known 301 redirects migrated from the old theme.
+ * Only inserts each redirect if it does not already exist (idempotent).
+ */
+function bseo_seed_redirects() {
+	global $wpdb;
+	$table = $wpdb->prefix . 'breeze_redirects';
+
+	$redirects = array(
+		// Old theme /project/* structure
+		array( '/project/',                            '/',                               301, 'Migração tema: /project/ → home' ),
+		array( '/project/serengeti-national-park/',    '/serengeti-national-park/',        301, 'Migração tema' ),
+		array( '/project/ngorongoro-conservation-area/', '/ngorongoro-conservation-area/', 301, 'Migração tema' ),
+		array( '/project/tarangire-national-park/',    '/tarangire-national-park/',        301, 'Migração tema' ),
+		array( '/project/lake-manyara-national-park/', '/lake-manyara-national-park/',     301, 'Migração tema' ),
+		array( '/project/arusha-national-park/',       '/arusha-national-park/',           301, 'Migração tema' ),
+		array( '/project/ndutu-area/',                 '/ndutu-area/',                     301, 'Migração tema' ),
+		array( '/project/zanzibar/',                   '/zanzibar/',                       301, 'Migração tema' ),
+		// Old page slugs
+		array( '/tanzania-safari-experts/',            '/about/',                          301, 'Migração tema' ),
+		array( '/cookie-policy-eu/',                   '/privacy-policy/',                 301, 'Migração tema' ),
+		// PT language
+		array( '/pt/especialistas-portugueses-em-safaris/', '/pt/sobre-nos/',              301, 'Migração tema PT' ),
+		array( '/pt/contacte-nos/',                    '/pt/contacto/',                    301, 'Migração tema PT' ),
+		// Trailing-slash canonical for /pt (no trailing slash)
+		array( '/pt',                                  '/pt/',                             301, 'Canonical trailing slash PT' ),
+	);
+
+	foreach ( $redirects as $r ) {
+		list( $url_old, $url_new, $type, $notes ) = $r;
+
+		$exists = $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$table} WHERE url_old = %s LIMIT 1", $url_old )
+		);
+		if ( $exists ) {
+			continue;
+		}
+
+		$wpdb->insert(
+			$table,
+			array(
+				'url_old'       => $url_old,
+				'url_new'       => $url_new,
+				'redirect_type' => $type,
+				'notes'         => $notes,
+				'created_at'    => current_time( 'mysql' ),
+			),
+			array( '%s', '%s', '%d', '%s', '%s' )
+		);
+	}
 }
 
 function bseo_deactivate() {
@@ -129,11 +182,23 @@ function bseo_create_tables() {
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	dbDelta( $sql_redirects );
 	dbDelta( $sql_crawl_log );
-	update_option( 'breeze_seo_db_version', '3.0' );
+	update_option( 'breeze_seo_db_version', '3.1' );
 }
 
 // ── Load plugin files ──────────────────────────────────────────────────────────
 function bseo_load() {
+	// Ensure DB tables exist (schema migration).
+	if ( version_compare( get_option( 'breeze_seo_db_version', '0' ), '3.1', '<' ) ) {
+		bseo_create_tables();
+	}
+
+	// Seed default redirects — tracked independently from schema version so that
+	// a failed seed on a previous load is retried on the next one.
+	if ( get_option( 'breeze_seo_seed_version', '0' ) !== '3.4' ) {
+		bseo_seed_redirects();
+		update_option( 'breeze_seo_seed_version', '3.4' );
+	}
+
 	require_once BREEZE_SEO_DIR . 'includes/class-redirects.php';
 	require_once BREEZE_SEO_DIR . 'includes/class-meta-tags.php';
 	require_once BREEZE_SEO_DIR . 'includes/class-sitemap.php';
