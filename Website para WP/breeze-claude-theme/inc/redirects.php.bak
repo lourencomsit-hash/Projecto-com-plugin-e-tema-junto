@@ -1,0 +1,68 @@
+<?php
+/**
+ * 301 redirects from old URLs to current URL structure.
+ *
+ * @package breeze-claude
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// ── Register explicit rewrite rule for /pt so WordPress always handles it ──
+// add_rewrite_rule() writes to .htaccess via WP's rewrite API, ensuring the
+// server routes /pt to index.php (like Polylang does for language prefixes).
+add_action('init', function () {
+    add_rewrite_rule('^pt$', 'index.php?pagename=pt', 'top');
+});
+
+// On theme activation flush rewrite rules so .htaccess is updated immediately.
+add_action('after_switch_theme', function () {
+    flush_rewrite_rules();
+});
+
+// ── Inject /pt → /pt/ into .htaccess via WordPress rewrite API ────────────
+add_filter('mod_rewrite_rules', function ($rules) {
+    $custom = "# Redirect /pt to /pt/ (SEO: preserve indexed URL without trailing slash)\n"
+            . "RewriteRule ^pt$ /pt/ [R=301,L]\n\n";
+    return $custom . $rules;
+});
+
+add_action('template_redirect', function () {
+    if (is_admin()) {
+        return;
+    }
+
+    $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $path = rtrim($requestPath, '/') . '/';
+
+    $map = array(
+        '/tanzania-safari-experts/'                 => '/about/',
+        '/pt/especialistas-portugueses-em-safaris/' => '/pt/sobre-nos/',
+        '/pt/contacte-nos/'                         => '/pt/contacto/',
+        '/project/'                                 => '/',
+        '/project/serengeti-national-park/'         => '/serengeti-national-park/',
+        '/project/ngorongoro-conservation-area/'    => '/ngorongoro-conservation-area/',
+        '/project/tarangire-national-park/'         => '/tarangire-national-park/',
+        '/project/lake-manyara-national-park/'      => '/lake-manyara-national-park/',
+        '/project/arusha-national-park/'            => '/arusha-national-park/',
+        '/project/ndutu-area/'                      => '/ndutu-area/',
+        '/project/zanzibar/'                        => '/zanzibar/',
+        '/cookie-policy-eu/'                        => '/privacy-policy/',
+    );
+
+    if (isset($map[$path])) {
+        wp_redirect(home_url($map[$path]), 301);
+        exit;
+    }
+
+    if (strncmp($path, '/project/', 9) === 0) {
+        wp_redirect(home_url('/'), 301);
+        exit;
+    }
+
+    if ($requestPath === '/pt') {
+        wp_redirect(home_url('/pt/'), 301);
+        exit;
+    }
+}, 1);

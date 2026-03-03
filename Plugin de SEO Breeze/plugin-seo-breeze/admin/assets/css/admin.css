@@ -1,0 +1,425 @@
+/* ============================================================
+   Breeze SEO — Admin CSS
+   ============================================================ */
+
+/* ── Wrap & Typography ───────────────────────────────────────── */
+.bseo-wrap {
+	max-width: 1200px;
+}
+
+.bseo-page-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 23px;
+	font-weight: 400;
+	margin-bottom: 20px;
+}
+
+.bseo-page-title .dashicons {
+	font-size: 26px;
+	width: 26px;
+	height: 26px;
+	color: #2271b1;
+}
+
+.bseo-version {
+	font-size: 13px;
+	color: #888;
+	font-weight: 400;
+	margin-left: 4px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.bseo-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px 24px;
+	margin-bottom: 20px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+}
+
+.bseo-card h2 {
+	margin: 0 0 16px;
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .5px;
+	color: #1d2327;
+}
+
+/* ── Stats Grid ──────────────────────────────────────────────── */
+.bseo-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 12px;
+	margin-bottom: 20px;
+}
+
+.bseo-stats-compact .bseo-stat-card {
+	padding: 12px 16px;
+}
+
+.bseo-stat-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 18px 20px;
+	text-align: center;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+}
+
+.bseo-stat-card.bseo-stat-good { border-left: 4px solid #00a32a; }
+.bseo-stat-card.bseo-stat-warn { border-left: 4px solid #dba617; }
+
+.bseo-stat-number {
+	font-size: 28px;
+	font-weight: 700;
+	color: #2271b1;
+	line-height: 1;
+	margin-bottom: 6px;
+}
+
+.bseo-stat-label {
+	font-size: 12px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: .4px;
+}
+
+/* ── Dashboard ───────────────────────────────────────────────── */
+.bseo-dashboard-cols {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 20px;
+}
+
+.bseo-quick-links {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.bseo-quick-links li { display: flex; }
+
+/* ── Settings ────────────────────────────────────────────────── */
+.bseo-settings-form .form-table th {
+	width: 200px;
+}
+
+.bseo-settings-tabs {
+	margin-bottom: 0;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+/* ── Table helpers ───────────────────────────────────────────── */
+.bseo-table-header {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.bseo-table-header h2 {
+	margin: 0;
+	flex: 1;
+}
+
+.bseo-search-form {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.bseo-search-form input[type="search"] {
+	min-width: 200px;
+}
+
+.bseo-bulk-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.bseo-page-info {
+	margin: 0 8px;
+	color: #646970;
+	font-size: 13px;
+}
+
+/* ── Badges ──────────────────────────────────────────────────── */
+.bseo-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .4px;
+}
+
+.bseo-badge-301 { background: #e8f0fe; color: #2271b1; }
+.bseo-badge-302 { background: #fef3cd; color: #856404; }
+.bseo-badge-index   { background: #d1fae5; color: #065f46; }
+.bseo-badge-noindex { background: #fee2e2; color: #991b1b; }
+
+/* ── Score badges ────────────────────────────────────────────── */
+.bseo-score-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.bseo-score-high   { background: #d1fae5; color: #065f46; }
+.bseo-score-medium { background: #fef3cd; color: #856404; }
+.bseo-score-low    { background: #fee2e2; color: #991b1b; }
+
+/* ── Audit table ─────────────────────────────────────────────── */
+.bseo-tiny-url {
+	font-size: 11px;
+	color: #646970;
+	text-decoration: none;
+}
+.bseo-tiny-url:hover { text-decoration: underline; }
+
+.bseo-check-ok   { color: #00a32a; font-size: 16px; }
+.bseo-check-warn { color: #dba617; font-size: 16px; cursor: help; }
+.bseo-check-bad  { color: #d63638; font-size: 16px; }
+
+.bseo-filter-tabs {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+}
+
+/* ── Redirects table ─────────────────────────────────────────── */
+.bseo-redirects-table code {
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.bseo-row-actions {
+	white-space: nowrap;
+}
+
+.bseo-inline-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+/* ── Media field ─────────────────────────────────────────────── */
+.bseo-media-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+/* ── AJAX result messages ────────────────────────────────────── */
+.bseo-ajax-result {
+	display: none;
+	margin-top: 12px;
+	padding: 10px 14px;
+	border-left: 4px solid transparent;
+	border-radius: 2px;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.5;
+}
+
+.bseo-ajax-result.success {
+	display: block;
+	border-left-color: #00a32a;
+	background: #f0fdf4;
+	color: #1d2327;
+}
+
+.bseo-ajax-result.error {
+	display: block;
+	border-left-color: #d63638;
+	background: #fef0f0;
+	color: #1d2327;
+}
+
+/* ── Meta box styles ─────────────────────────────────────────── */
+.bseo-meta-box {
+	margin: -6px -12px -12px;
+}
+
+.bseo-meta-tabs {
+	display: flex;
+	border-bottom: 1px solid #dcdcde;
+	background: #f6f7f7;
+	padding: 0 12px;
+}
+
+.bseo-tab-btn {
+	background: none;
+	border: none;
+	border-bottom: 3px solid transparent;
+	padding: 10px 14px;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+	color: #646970;
+	transition: color .15s, border-color .15s;
+}
+
+.bseo-tab-btn:hover { color: #1d2327; }
+
+.bseo-tab-btn.active {
+	color: #2271b1;
+	border-bottom-color: #2271b1;
+}
+
+.bseo-tab-panel {
+	padding: 16px 12px 12px;
+}
+
+.bseo-form-table th {
+	width: 140px;
+	font-weight: 500;
+}
+
+/* ── Char counter ────────────────────────────────────────────── */
+.bseo-char-count {
+	font-size: 12px;
+	color: #646970;
+	margin-top: 4px;
+	display: block;
+}
+
+.bseo-warn {
+	color: #dba617;
+	font-weight: 600;
+}
+
+.bseo-char-count.over { color: #d63638; }
+
+/* ── Score bar in meta box ───────────────────────────────────── */
+.bseo-meta-box-footer {
+	padding: 12px;
+	border-top: 1px solid #dcdcde;
+	background: #f6f7f7;
+}
+
+.bseo-score-indicator {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.bseo-score-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #646970;
+}
+
+.bseo-score-bar {
+	flex: 1;
+	height: 8px;
+	background: #dcdcde;
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.bseo-score-fill {
+	height: 100%;
+	background: #2271b1;
+	border-radius: 4px;
+	transition: width .3s;
+}
+
+/* ── Google preview ──────────────────────────────────────────── */
+.bseo-preview-google {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	padding: 16px;
+	max-width: 600px;
+	margin-bottom: 20px;
+	font-family: Arial, sans-serif;
+}
+
+.bseo-preview-google-url {
+	font-size: 12px;
+	color: #4d5156;
+	margin-bottom: 4px;
+}
+
+.bseo-preview-google-title {
+	font-size: 20px;
+	color: #1a0dab;
+	margin-bottom: 4px;
+	line-height: 1.3;
+	word-break: break-word;
+}
+
+.bseo-preview-google-desc {
+	font-size: 14px;
+	color: #4d5156;
+	line-height: 1.57;
+}
+
+/* ── Facebook / OG preview ───────────────────────────────────── */
+.bseo-preview-facebook {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	overflow: hidden;
+	max-width: 500px;
+	font-family: Helvetica, Arial, sans-serif;
+}
+
+.bseo-preview-facebook-img,
+.bseo-preview-facebook-img-placeholder {
+	width: 100%;
+	height: 260px;
+	object-fit: cover;
+	display: block;
+	background: #f0f2f5;
+}
+
+.bseo-preview-facebook-img-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #65676b;
+	font-size: 13px;
+}
+
+.bseo-preview-facebook-body {
+	padding: 10px 12px;
+	border-top: 1px solid #dcdcde;
+}
+
+.bseo-preview-facebook-domain {
+	font-size: 11px;
+	color: #65676b;
+	text-transform: uppercase;
+	margin-bottom: 4px;
+}
+
+.bseo-preview-facebook-title {
+	font-size: 16px;
+	font-weight: 700;
+	color: #1d2129;
+	margin-bottom: 4px;
+	line-height: 1.25;
+}
+
+.bseo-preview-facebook-desc {
+	font-size: 14px;
+	color: #606770;
+	line-height: 1.35;
+}

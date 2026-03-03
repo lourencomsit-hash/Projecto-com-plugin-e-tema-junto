@@ -1,0 +1,703 @@
+<?php
+/**
+ * SEO: Meta tags, Open Graph, Twitter Cards, JSON-LD Structured Data
+ *
+ * Outputs per-page SEO meta tags without requiring a plugin.
+ * Hooks into wp_head at priority 2 (meta) and 3 (JSON-LD), after
+ * Google Fonts at priority 1.
+ *
+ * @package breeze-codex-theme
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// ── Document title override ────────────────────────────────────────────────
+// Returns a fully-formed <title> string per page, bypassing WP default format.
+add_filter('pre_get_document_title', 'breeze_override_document_title');
+function breeze_override_document_title($title) {
+    $seo = breeze_resolve_current_page_seo();
+    return !empty($seo['og_title']) ? $seo['og_title'] : $title;
+}
+
+// ── Meta description, canonical, robots, Open Graph, Twitter Cards ─────────
+add_action('wp_head', 'breeze_output_seo_meta_tags', 2);
+function breeze_output_seo_meta_tags() {
+    $seo = breeze_resolve_current_page_seo();
+    if (empty($seo)) {
+        return;
+    }
+
+    $desc      = isset($seo['description'])    ? $seo['description']    : '';
+    $canonical = isset($seo['canonical'])      ? $seo['canonical']      : '';
+    $robots    = isset($seo['robots'])         ? $seo['robots']         : 'index,follow,max-image-preview:large,max-snippet:-1';
+    $og_title  = isset($seo['og_title'])       ? $seo['og_title']       : '';
+    $og_desc   = isset($seo['og_description']) ? $seo['og_description'] : $desc;
+    $og_image  = isset($seo['og_image'])       ? $seo['og_image']       : '';
+    $og_type   = isset($seo['og_type'])        ? $seo['og_type']        : 'website';
+
+    if ($desc)      echo '<meta name="description" content="' . esc_attr($desc) . '">' . "\n";
+    if ($canonical) echo '<link rel="canonical" href="' . esc_url($canonical) . '">' . "\n";
+    echo '<meta name="robots" content="' . esc_attr($robots) . '">' . "\n";
+
+    // Open Graph
+    $og_locale = (function_exists('breeze_get_current_lang') && breeze_get_current_lang() === 'pt') ? 'pt_PT' : 'en_US';
+    echo '<meta property="og:locale" content="' . esc_attr($og_locale) . '">' . "\n";
+    echo '<meta property="og:type" content="' . esc_attr($og_type) . '">' . "\n";
+    if ($og_title)  echo '<meta property="og:title" content="' . esc_attr($og_title) . '">' . "\n";
+    if ($og_desc)   echo '<meta property="og:description" content="' . esc_attr($og_desc) . '">' . "\n";
+    if ($canonical) echo '<meta property="og:url" content="' . esc_url($canonical) . '">' . "\n";
+    echo '<meta property="og:site_name" content="Breeze Safaris">' . "\n";
+    if ($og_image) {
+        echo '<meta property="og:image" content="' . esc_url($og_image) . '">' . "\n";
+        echo '<meta property="og:image:width" content="1200">' . "\n";
+        echo '<meta property="og:image:height" content="800">' . "\n";
+        if ($og_title) {
+            echo '<meta property="og:image:alt" content="' . esc_attr($og_title) . '">' . "\n";
+        }
+    }
+
+    // Twitter Cards
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+    if ($og_title) echo '<meta name="twitter:title" content="' . esc_attr($og_title) . '">' . "\n";
+    if ($og_desc)  echo '<meta name="twitter:description" content="' . esc_attr($og_desc) . '">' . "\n";
+    if ($og_image) echo '<meta name="twitter:image" content="' . esc_url($og_image) . '">' . "\n";
+}
+
+// ── JSON-LD Structured Data ────────────────────────────────────────────────
+add_action('wp_head', 'breeze_output_json_ld', 3);
+function breeze_output_json_ld() {
+    $schema = breeze_build_json_ld();
+    if (empty($schema)) {
+        return;
+    }
+    echo '<script type="application/ld+json">' . "\n"
+        . wp_json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+        . "\n</script>\n";
+}
+
+function breeze_build_json_ld() {
+    $home_url = trailingslashit(home_url('/'));
+    $logo_url = breeze_get_logo_url();
+    $email    = 'info@breezesafaris.com';
+    $is_pt    = function_exists('breeze_is_pt_page') && !is_front_page() && is_page() && breeze_is_pt_page();
+    $lang     = $is_pt ? 'pt-PT' : 'en';
+
+    $org = array(
+        '@type' => 'Organization',
+        '@id'   => $home_url . '#organization',
+        'name'  => 'Breeze Safaris',
+        'url'   => $home_url,
+        'email' => $email,
+    );
+    if ($logo_url) {
+        $org['logo'] = array('@type' => 'ImageObject', 'url' => $logo_url);
+    }
+
+    $website = array(
+        '@type'      => 'WebSite',
+        '@id'        => $home_url . '#website',
+        'name'       => 'Breeze Safaris',
+        'url'        => $home_url,
+        'inLanguage' => $lang,
+        'publisher'  => array('@id' => $home_url . '#organization'),
+    );
+
+    $current_url = is_front_page()
+        ? $home_url
+        : trailingslashit((string) get_permalink(get_queried_object_id()));
+
+    // ── Homepage ──────────────────────────────────────────────────────────
+    if (is_front_page()) {
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $org,
+                $website,
+                array(
+                    '@type'       => 'TravelAgency',
+                    '@id'         => $home_url . '#business',
+                    'name'        => 'Breeze Safaris',
+                    'url'         => $home_url,
+                    'description' => 'Private tailor-made Tanzania safaris and Zanzibar beach extensions planned by local specialists.',
+                    'areaServed'  => array('Tanzania', 'Zanzibar', 'Serengeti', 'Ngorongoro', 'Tarangire'),
+                    'email'       => $email,
+                    'address'     => array(
+                        '@type'         => 'PostalAddress',
+                        'addressCountry'=> 'TZ',
+                        'addressRegion' => 'Tanzania',
+                    ),
+                ),
+                array(
+                    '@type'    => 'WebPage',
+                    '@id'      => $current_url . '#webpage',
+                    'url'      => $current_url,
+                    'name'     => 'Breeze Safaris | Tanzania Safari, Zanzibar & National Parks',
+                    'isPartOf' => array('@id' => $home_url . '#website'),
+                ),
+            ),
+        );
+    }
+
+    if (!is_page()) {
+        return array();
+    }
+
+    $post_id       = get_queried_object_id();
+    $slug          = get_post_field('post_name', $post_id);
+    $page_title    = get_the_title($post_id);
+    $breadcrumb_id = $current_url . '#breadcrumb';
+    $webpage_id    = $current_url . '#webpage';
+    $bc_home_label = $is_pt ? 'Início' : 'Home';
+    $bc_home       = array('@type' => 'ListItem', 'position' => 1, 'name' => $bc_home_label, 'item' => $home_url);
+
+    // ── Destination pages ──────────────────────────────────────────────────
+    if (is_page_template('page-templates/destination-page.php')) {
+        $dest_data  = breeze_get_destination_view_data($post_id);
+        $seo        = breeze_resolve_current_page_seo();
+        $dest_title = $dest_data['title'];
+        $desc       = isset($seo['description'])
+            ? $seo['description']
+            : (isset($dest_data['hero_subtitle']) ? $dest_data['hero_subtitle'] : '');
+        $hero_image = $dest_data['hero_image'];
+        $wp_name    = isset($seo['og_title'])
+            ? $seo['og_title']
+            : ($dest_title . ' Safari | Breeze Safaris Tanzania');
+
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $website,
+                array(
+                    '@type'            => 'TouristDestination',
+                    'name'             => $dest_title,
+                    'description'      => $desc,
+                    'url'              => $current_url,
+                    'image'            => $hero_image,
+                    'containedInPlace' => array('@type' => 'Country', 'name' => $is_pt ? 'Tanzânia' : 'Tanzania'),
+                ),
+                array(
+                    '@type'      => 'WebPage',
+                    '@id'        => $webpage_id,
+                    'url'        => $current_url,
+                    'name'       => $wp_name,
+                    'isPartOf'   => array('@id' => $home_url . '#website'),
+                    'breadcrumb' => array('@id' => $breadcrumb_id),
+                ),
+                array(
+                    '@type'           => 'BreadcrumbList',
+                    '@id'             => $breadcrumb_id,
+                    'itemListElement' => array(
+                        $bc_home,
+                        array('@type' => 'ListItem', 'position' => 2, 'name' => $dest_title),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // ── Package detail pages (children of /packages/ or /pt/pacotes/) ─────────
+    $parent_id          = wp_get_post_parent_id($post_id);
+    $parent_name        = $parent_id ? get_post_field('post_name', $parent_id) : '';
+    if ($parent_id && ($parent_name === 'packages' || $parent_name === 'pacotes')) {
+        $seo          = breeze_resolve_current_page_seo();
+        $desc         = isset($seo['description']) ? $seo['description'] : '';
+        $og_image     = isset($seo['og_image'])    ? $seo['og_image']    : '';
+        if ($is_pt) {
+            $packages_url   = trailingslashit(breeze_get_page_url_by_slug('pt/pacotes', home_url('/pt/pacotes/')));
+            $packages_label = 'Pacotes de Safari';
+        } else {
+            $packages_url   = trailingslashit(breeze_get_page_url_by_slug('packages', home_url('/packages/')));
+            $packages_label = 'Safari Packages';
+        }
+
+        $trip = array(
+            '@type'       => 'TouristTrip',
+            'name'        => $page_title,
+            'description' => $desc,
+            'url'         => $current_url,
+            'provider'    => array('@id' => $home_url . '#organization'),
+            'touristType' => array('Wildlife Safari', 'Adventure Travel'),
+        );
+        if ($og_image) {
+            $trip['image'] = $og_image;
+        }
+
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $website,
+                $trip,
+                array(
+                    '@type'      => 'WebPage',
+                    '@id'        => $webpage_id,
+                    'url'        => $current_url,
+                    'name'       => $page_title . ' | Breeze Safaris',
+                    'isPartOf'   => array('@id' => $home_url . '#website'),
+                    'breadcrumb' => array('@id' => $breadcrumb_id),
+                ),
+                array(
+                    '@type'           => 'BreadcrumbList',
+                    '@id'             => $breadcrumb_id,
+                    'itemListElement' => array(
+                        $bc_home,
+                        array('@type' => 'ListItem', 'position' => 2, 'name' => $packages_label, 'item' => $packages_url),
+                        array('@type' => 'ListItem', 'position' => 3, 'name' => $page_title),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // ── Contact page ──────────────────────────────────────────────────────
+    if ($slug === 'contact') {
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $website,
+                $org,
+                array(
+                    '@type'       => 'ContactPage',
+                    '@id'         => $webpage_id,
+                    'url'         => $current_url,
+                    'name'        => 'Plan Your Safari | Contact Breeze Safaris',
+                    'description' => 'Get in touch with Breeze Safaris to plan your tailor-made Tanzania safari.',
+                    'isPartOf'    => array('@id' => $home_url . '#website'),
+                    'breadcrumb'  => array('@id' => $breadcrumb_id),
+                ),
+                array(
+                    '@type'           => 'BreadcrumbList',
+                    '@id'             => $breadcrumb_id,
+                    'itemListElement' => array(
+                        $bc_home,
+                        array('@type' => 'ListItem', 'position' => 2, 'name' => 'Contact'),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // ── About page ────────────────────────────────────────────────────────
+    if ($slug === 'about') {
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $website,
+                $org,
+                array(
+                    '@type'       => 'AboutPage',
+                    '@id'         => $webpage_id,
+                    'url'         => $current_url,
+                    'name'        => 'About Us | Breeze Safaris Tanzania Experts',
+                    'description' => 'Meet Breeze Safaris, two Tanzania-based safari specialists creating tailor-made journeys with trusted local partners.',
+                    'isPartOf'    => array('@id' => $home_url . '#website'),
+                    'about'       => array('@id' => $home_url . '#organization'),
+                    'breadcrumb'  => array('@id' => $breadcrumb_id),
+                ),
+                array(
+                    '@type'           => 'BreadcrumbList',
+                    '@id'             => $breadcrumb_id,
+                    'itemListElement' => array(
+                        $bc_home,
+                        array('@type' => 'ListItem', 'position' => 2, 'name' => 'About'),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // ── PT homepage (/pt/) ────────────────────────────────────────────────
+    if ($slug === 'pt') {
+        return array(
+            '@context' => 'https://schema.org',
+            '@graph'   => array(
+                $website,
+                array(
+                    '@type'       => 'WebPage',
+                    '@id'         => $webpage_id,
+                    'url'         => $current_url,
+                    'name'        => 'Breeze Safaris | Safaris na Tanzânia, Zanzibar & Parques Nacionais',
+                    'inLanguage'  => 'pt-PT',
+                    'isPartOf'    => array('@id' => $home_url . '#website'),
+                ),
+            ),
+        );
+    }
+
+    // ── Generic fallback (packages listing, privacy policy, etc.) ─────────
+    return array(
+        '@context' => 'https://schema.org',
+        '@graph'   => array(
+            $website,
+            array(
+                '@type'      => 'WebPage',
+                '@id'        => $webpage_id,
+                'url'        => $current_url,
+                'name'       => $page_title . ' | Breeze Safaris',
+                'isPartOf'   => array('@id' => $home_url . '#website'),
+                'breadcrumb' => array('@id' => $breadcrumb_id),
+            ),
+            array(
+                '@type'           => 'BreadcrumbList',
+                '@id'             => $breadcrumb_id,
+                'itemListElement' => array(
+                    $bc_home,
+                    array('@type' => 'ListItem', 'position' => 2, 'name' => $page_title),
+                ),
+            ),
+        ),
+    );
+}
+
+// ── Per-page SEO data resolver ─────────────────────────────────────────────
+// Cached so it can be called multiple times per request (title + meta + LD).
+function breeze_resolve_current_page_seo() {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    $cache = breeze_compute_current_page_seo();
+    return $cache;
+}
+
+function breeze_compute_current_page_seo() {
+    $home_url         = trailingslashit(home_url('/'));
+    $default_og_image = 'https://breezesafaris.com/wp-content/uploads/2026/01/serengeti-4-1200x800.jpg';
+
+    // ── Homepage ──────────────────────────────────────────────────────────
+    if (is_front_page()) {
+        return array(
+            'description'    => 'Breeze Safaris creates tailor-made Tanzania safari holidays, Serengeti tours, Ngorongoro trips and Zanzibar extensions with trusted local experts.',
+            'canonical'      => $home_url,
+            'og_title'       => 'Breeze Safaris | Tanzania Safari, Zanzibar & National Parks',
+            'og_description' => 'Tailor-made Tanzania safaris with local experts, private guides and curated Zanzibar beach extensions.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        );
+    }
+
+    if (!is_page()) {
+        return array();
+    }
+
+    $post_id   = get_queried_object_id();
+    $slug      = get_post_field('post_name', $post_id);
+    $canonical = trailingslashit((string) get_permalink($post_id));
+
+    // ── PT pages — delegate to separate resolver ───────────────────────────
+    if (function_exists('breeze_is_pt_page') && breeze_is_pt_page($post_id)) {
+        return breeze_compute_pt_page_seo($post_id, $slug, $canonical);
+    }
+
+    // ── Destination pages ──────────────────────────────────────────────────
+    if (is_page_template('page-templates/destination-page.php')) {
+        $dest_defaults = breeze_get_destination_defaults();
+        $dest          = isset($dest_defaults[$slug]) ? $dest_defaults[$slug] : array();
+        $hero_image    = isset($dest['hero_image']) ? $dest['hero_image'] : $default_og_image;
+
+        $dest_seo = array(
+            'serengeti-national-park'      => array(
+                'og_title'       => 'Serengeti National Park Safari | Breeze Safaris Tanzania',
+                'description'    => 'Discover Serengeti National Park with Breeze Safaris. Private game drives, migration-focused planning, handpicked camps and full Tanzania safari support.',
+                'og_description' => 'Classic Serengeti landscapes, predator sightings and migration-focused itineraries.',
+            ),
+            'ngorongoro-conservation-area' => array(
+                'og_title'       => 'Ngorongoro Conservation Area Safari | Breeze Safaris Tanzania',
+                'description'    => 'Explore Ngorongoro Conservation Area with Breeze Safaris. Crater descent game drives, dense wildlife sightings and private Tanzania safari planning.',
+                'og_description' => 'Dramatic Ngorongoro crater floor with extraordinary wildlife concentration and private safari guidance.',
+            ),
+            'tarangire-national-park'      => array(
+                'og_title'       => 'Tarangire National Park Safari | Breeze Safaris Tanzania',
+                'description'    => 'Tarangire National Park safari with Breeze Safaris. Private drives, elephant encounters and baobab landscapes on a Tanzania northern circuit.',
+                'og_description' => 'Giant baobabs, seasonal elephant herds and calm game drives in Tarangire.',
+            ),
+            'lake-manyara-national-park'   => array(
+                'og_title'       => 'Lake Manyara National Park Safari | Breeze Safaris Tanzania',
+                'description'    => 'Lake Manyara National Park safari with Breeze Safaris. Forest, lake-edge wildlife and Rift Valley escarpment scenery in a compact Tanzania circuit stop.',
+                'og_description' => 'Compact but visually rich park with forest, lake and escarpment landscape diversity.',
+            ),
+            'arusha-national-park'         => array(
+                'og_title'       => 'Arusha National Park Safari | Breeze Safaris Tanzania',
+                'description'    => 'Arusha National Park safari with Breeze Safaris. Perfect first Tanzania circuit stop near Kilimanjaro airport with Mount Meru views and diverse habitats.',
+                'og_description' => 'Ideal opening park for Tanzania safaris, close to Arusha with Mount Meru and diverse wildlife habitats.',
+            ),
+            'ndutu-area'                   => array(
+                'og_title'       => 'Ndutu Area Migration Safari | Breeze Safaris Tanzania',
+                'description'    => 'Ndutu Area safari with Breeze Safaris. Migration calving season game drives, predator tracking and wildebeest movement from December to March.',
+                'og_description' => 'Powerful migration calving season and predator behaviour in the Ndutu plains.',
+            ),
+            'zanzibar'                     => array(
+                'og_title'       => 'Zanzibar Beach Holiday | Breeze Safaris Tanzania',
+                'description'    => 'Zanzibar beach holiday with Breeze Safaris. White sand beaches, warm Indian Ocean water and curated coastal stays as the perfect safari finale.',
+                'og_description' => 'The perfect Tanzania safari finale — white sand, warm water and handpicked Zanzibar beach stays.',
+            ),
+        );
+
+        $page_seo = isset($dest_seo[$slug]) ? $dest_seo[$slug] : array();
+
+        return array(
+            'description'    => isset($page_seo['description'])    ? $page_seo['description']    : (isset($dest['hero_subtitle']) ? $dest['hero_subtitle'] : ''),
+            'canonical'      => $canonical,
+            'og_title'       => isset($page_seo['og_title'])       ? $page_seo['og_title']       : (get_the_title($post_id) . ' Safari | Breeze Safaris Tanzania'),
+            'og_description' => isset($page_seo['og_description']) ? $page_seo['og_description'] : '',
+            'og_image'       => $hero_image,
+            'og_type'        => 'article',
+        );
+    }
+
+    // ── Package detail pages ───────────────────────────────────────────────
+    $parent_id = wp_get_post_parent_id($post_id);
+    if ($parent_id && get_post_field('post_name', $parent_id) === 'packages') {
+        $package_seo = array(
+            'ndutu-calving-season-safari'            => array(
+                'og_title'       => '6-Day Ndutu Great Migration Safari | Breeze Safaris',
+                'description'    => '6-day Ndutu Great Migration Safari from December to March, with migration-focused game drives across Ndutu plains and a Ngorongoro Crater finale.',
+                'og_description' => 'Track the Great Migration in Ndutu across 6 days, with predator action and a Ngorongoro Crater game drive.',
+                'og_image'       => breeze_theme_media_url('photos/Ndutu 1.jpg'),
+            ),
+            'luxury-migration-big-five-safari-8-day' => array(
+                'og_title'       => '8-Day Luxury Migration & Big Five Safari | Breeze Safaris',
+                'description'    => '8-day luxury Tanzania safari through Tarangire, Northern Serengeti and Ngorongoro, with premium lodge stays and migration-focused routing.',
+                'og_description' => 'Premium 8-day Tanzania safari route with Tarangire, Serengeti and Ngorongoro in luxury camps.',
+                'og_image'       => breeze_theme_media_url('photos/migration.jpg'),
+            ),
+            'tanzania-zanzibar-honeymoon-9-day'      => array(
+                'og_title'       => '9-Day Tanzania & Zanzibar Honeymoon Journey | Breeze Safaris',
+                'description'    => '9-day private honeymoon safari through Tarangire and Lake Manyara with a Zanzibar beach finale, designed for couples and special occasions.',
+                'og_description' => 'Private 9-day Tanzania and Zanzibar honeymoon journey through Tarangire, Manyara and the coast.',
+                'og_image'       => breeze_theme_media_url('photos/zanzibar1.jpg'),
+            ),
+        );
+
+        $page_seo = isset($package_seo[$slug]) ? $package_seo[$slug] : array();
+
+        return array(
+            'description'    => isset($page_seo['description'])    ? $page_seo['description']    : '',
+            'canonical'      => $canonical,
+            'og_title'       => isset($page_seo['og_title'])       ? $page_seo['og_title']       : (get_the_title($post_id) . ' | Breeze Safaris'),
+            'og_description' => isset($page_seo['og_description']) ? $page_seo['og_description'] : '',
+            'og_image'       => isset($page_seo['og_image'])       ? $page_seo['og_image']       : $default_og_image,
+            'og_type'        => 'article',
+        );
+    }
+
+    // ── Named pages ───────────────────────────────────────────────────────
+    $named_pages = array(
+        'contact'        => array(
+            'og_title'       => 'Plan Your Safari | Contact Breeze Safaris',
+            'description'    => 'Get in touch with Breeze Safaris to plan your tailor-made Tanzania safari. Fill in our contact form for a personalised itinerary proposal.',
+            'og_description' => 'Start planning your Tanzania safari with Breeze Safaris. Private, tailor-made itineraries from local experts.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        ),
+        'about'          => array(
+            'og_title'       => 'About Us | Breeze Safaris Tanzania Experts',
+            'description'    => 'Meet Breeze Safaris, two Tanzania-based safari specialists creating tailor-made journeys with trusted local partners.',
+            'og_description' => 'Two safari specialists based in Tanzania, planning private journeys with local expertise and trusted operator networks.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        ),
+        'packages'       => array(
+            'og_title'       => 'All Safari Packages | Breeze Safaris',
+            'description'    => 'Browse Breeze Safaris Tanzania safari packages. Private itineraries from Great Migration safaris to honeymoon journeys and Zanzibar beach extensions.',
+            'og_description' => 'Private Tanzania safari packages, from Great Migration safaris to honeymoon journeys and Zanzibar extensions.',
+            'og_image'       => breeze_theme_media_url('photos/migration.jpg'),
+            'og_type'        => 'website',
+        ),
+        'privacy-policy' => array(
+            'og_title'       => 'Privacy Policy | Breeze Safaris',
+            'description'    => 'Breeze Safaris privacy policy — how we collect, use and protect your personal data.',
+            'og_description' => 'How Breeze Safaris handles your personal information.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+            'robots'         => 'noindex,follow',
+        ),
+    );
+
+    if (isset($named_pages[$slug])) {
+        $p = $named_pages[$slug];
+        return array(
+            'description'    => $p['description'],
+            'canonical'      => $canonical,
+            'og_title'       => $p['og_title'],
+            'og_description' => $p['og_description'],
+            'og_image'       => $p['og_image'],
+            'og_type'        => isset($p['og_type'])  ? $p['og_type']  : 'website',
+            'robots'         => isset($p['robots'])   ? $p['robots']   : 'index,follow,max-image-preview:large,max-snippet:-1',
+        );
+    }
+
+    // ── Generic fallback ──────────────────────────────────────────────────
+    return array(
+        'description'    => '',
+        'canonical'      => $canonical,
+        'og_title'       => get_the_title($post_id) . ' | Breeze Safaris',
+        'og_description' => '',
+        'og_image'       => $default_og_image,
+        'og_type'        => 'website',
+    );
+}
+
+// ── PT SEO resolver ────────────────────────────────────────────────────────
+function breeze_compute_pt_page_seo($post_id, $slug, $canonical) {
+    $default_og_image = 'https://breezesafaris.com/wp-content/uploads/2026/01/serengeti-4-1200x800.jpg';
+
+    // PT homepage (/pt/)
+    if ($slug === 'pt') {
+        return array(
+            'description'    => 'A Breeze Safaris cria safaris privados à medida na Tanzânia, com guias locais de confiança e extensões de praia em Zanzibar.',
+            'canonical'      => $canonical,
+            'og_title'       => 'Breeze Safaris | Safaris na Tanzânia, Zanzibar & Parques Nacionais',
+            'og_description' => 'Safaris privados à medida na Tanzânia, com guias especialistas e extensões de praia em Zanzibar.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        );
+    }
+
+    // PT destination pages
+    if (is_page_template('page-templates/destination-page.php')) {
+        $en_slug = (string) get_post_meta($post_id, '_breeze_en_slug', true);
+        $dest_seo_pt = array(
+            'serengeti-national-park' => array(
+                'og_title'       => 'Safari no Parque Nacional do Serengeti | Breeze Safaris Tanzânia',
+                'description'    => 'Descubra o Parque Nacional do Serengeti com a Breeze Safaris. Excursões privadas em 4x4, planeamento focado na migração e apoio completo de safari na Tanzânia.',
+                'og_description' => 'Planícies icónicas do Serengeti, avistamentos de predadores e itinerários focados na migração.',
+            ),
+            'ngorongoro-conservation-area' => array(
+                'og_title'       => 'Safari na Área de Conservação de Ngorongoro | Breeze Safaris Tanzânia',
+                'description'    => 'Explore a Área de Conservação de Ngorongoro com a Breeze Safaris. Descidas à cratera, avistamentos intensos de fauna e planeamento privado de safari na Tanzânia.',
+                'og_description' => 'Cratera dramática de Ngorongoro com extraordinária concentração de fauna selvagem e guia privado.',
+            ),
+            'tarangire-national-park' => array(
+                'og_title'       => 'Safari no Parque Nacional de Tarangire | Breeze Safaris Tanzânia',
+                'description'    => 'Safari no Parque Nacional de Tarangire com a Breeze Safaris. Excursões privadas, elefantes e paisagens de baobás no circuito norte da Tanzânia.',
+                'og_description' => 'Baobás gigantes, bandos sazonais de elefantes e excursões tranquilas em Tarangire.',
+            ),
+            'lake-manyara-national-park' => array(
+                'og_title'       => 'Safari no Parque Nacional do Lago Manyara | Breeze Safaris Tanzânia',
+                'description'    => 'Safari no Parque Nacional do Lago Manyara com a Breeze Safaris. Floresta, fauna lacustre e cenário da escarpa do Rift Valley numa paragem compacta do circuito norte.',
+                'og_description' => 'Parque compacto mas visualmente rico com floresta, lago e diversidade paisagística da escarpa do Rift.',
+            ),
+            'arusha-national-park' => array(
+                'og_title'       => 'Safari no Parque Nacional de Arusha | Breeze Safaris Tanzânia',
+                'description'    => 'Safari no Parque Nacional de Arusha com a Breeze Safaris. Paragem ideal de arranque no circuito norte da Tanzânia, próximo de Arusha, com vistas para o Monte Meru.',
+                'og_description' => 'Parque de arranque ideal para safaris na Tanzânia, próximo de Arusha, com fauna diversificada.',
+            ),
+            'ndutu-area' => array(
+                'og_title'       => 'Safari de Migração na Área de Ndutu | Breeze Safaris Tanzânia',
+                'description'    => 'Safari na Área de Ndutu com a Breeze Safaris. Época de parição da migração, rastreio de predadores e movimento dos gnus de Dezembro a Março.',
+                'og_description' => 'Época de parição da Grande Migração e comportamento intenso de predadores nas planícies de Ndutu.',
+            ),
+            'zanzibar' => array(
+                'og_title'       => 'Férias de Praia em Zanzibar | Breeze Safaris Tanzânia',
+                'description'    => 'Férias de praia em Zanzibar com a Breeze Safaris. Areia branca, Oceano Índico morno e estadias costeiras seleccionadas como o final perfeito do safari na Tanzânia.',
+                'og_description' => 'O final perfeito do safari — areia branca, oceano morno e estadias boutique em Zanzibar.',
+            ),
+        );
+        $hero_image = $default_og_image;
+        if ($en_slug) {
+            $en_defaults = breeze_get_destination_defaults();
+            $hero_image  = isset($en_defaults[$en_slug]['hero_image']) ? $en_defaults[$en_slug]['hero_image'] : $default_og_image;
+        }
+        $page_seo = ($en_slug && isset($dest_seo_pt[$en_slug])) ? $dest_seo_pt[$en_slug] : array();
+        return array(
+            'description'    => isset($page_seo['description'])    ? $page_seo['description']    : get_the_title($post_id),
+            'canonical'      => $canonical,
+            'og_title'       => isset($page_seo['og_title'])       ? $page_seo['og_title']       : (get_the_title($post_id) . ' | Breeze Safaris'),
+            'og_description' => isset($page_seo['og_description']) ? $page_seo['og_description'] : '',
+            'og_image'       => $hero_image,
+            'og_type'        => 'article',
+        );
+    }
+
+    // PT package detail pages (children of 'pacotes' under 'pt')
+    $parent_id = wp_get_post_parent_id($post_id);
+    if ($parent_id && get_post_field('post_name', $parent_id) === 'pacotes') {
+        $package_seo_pt = array(
+            'safari-migracao-ndutu-6-dias' => array(
+                'og_title'       => 'Safari de 6 Dias na Grande Migração de Ndutu | Breeze Safaris',
+                'description'    => 'Safari de 6 dias na Grande Migração de Ndutu de Dezembro a Março, com excursões focadas na migração nas planícies de Ndutu e visita final à Cratera de Ngorongoro.',
+                'og_description' => 'Siga a Grande Migração em Ndutu durante 6 dias, com acção de predadores e safari na Cratera de Ngorongoro.',
+                'og_image'       => breeze_theme_media_url('photos/Ndutu 1.jpg'),
+            ),
+            'safari-luxo-big-five-8-dias' => array(
+                'og_title'       => 'Safari de Luxo de 8 Dias — Migração & Big Five | Breeze Safaris',
+                'description'    => 'Safari de luxo de 8 dias pela Tanzânia em Tarangire, Serengeti Norte e Ngorongoro, com estadias em lodges premium e rota focada na migração.',
+                'og_description' => 'Rota premium de 8 dias pela Tanzânia com Tarangire, Serengeti e Ngorongoro em acampamentos de luxo.',
+                'og_image'       => breeze_theme_media_url('photos/migration.jpg'),
+            ),
+            'lua-de-mel-tanzania-zanzibar-9-dias' => array(
+                'og_title'       => 'Lua de Mel de 9 Dias na Tanzânia & Zanzibar | Breeze Safaris',
+                'description'    => 'Viagem privada de lua de mel de 9 dias em Tarangire e Lago Manyara com final de praia em Zanzibar, desenhada para casais e ocasiões especiais.',
+                'og_description' => 'Viagem privada de 9 dias pela Tanzânia e Zanzibar em lua de mel através de Tarangire, Manyara e a costa.',
+                'og_image'       => breeze_theme_media_url('photos/zanzibar1.jpg'),
+            ),
+        );
+        $page_seo = isset($package_seo_pt[$slug]) ? $package_seo_pt[$slug] : array();
+        return array(
+            'description'    => isset($page_seo['description'])    ? $page_seo['description']    : '',
+            'canonical'      => $canonical,
+            'og_title'       => isset($page_seo['og_title'])       ? $page_seo['og_title']       : (get_the_title($post_id) . ' | Breeze Safaris'),
+            'og_description' => isset($page_seo['og_description']) ? $page_seo['og_description'] : '',
+            'og_image'       => isset($page_seo['og_image'])       ? $page_seo['og_image']       : $default_og_image,
+            'og_type'        => 'article',
+        );
+    }
+
+    // PT named pages
+    $pt_named = array(
+        'contacto' => array(
+            'og_title'       => 'Planear o Seu Safari | Contactar a Breeze Safaris',
+            'description'    => 'Entre em contacto com a Breeze Safaris para planear o seu safari privado à medida na Tanzânia. Preencha o formulário para uma proposta de itinerário personalizada.',
+            'og_description' => 'Comece a planear o seu safari na Tanzânia. Itinerários privados e à medida com especialistas locais.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        ),
+        'sobre-nos' => array(
+            'og_title'       => 'Sobre Nós | Breeze Safaris — Especialistas em Safari na Tanzânia',
+            'description'    => 'Conheça a Breeze Safaris, dois especialistas em safari baseados na Tanzânia a criar viagens à medida com parceiros locais de confiança.',
+            'og_description' => 'Dois especialistas em safari baseados na Tanzânia, a planear viagens privadas com conhecimento local.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+        ),
+        'pacotes' => array(
+            'og_title'       => 'Todos os Pacotes de Safari | Breeze Safaris',
+            'description'    => 'Explore os pacotes de safari na Tanzânia da Breeze Safaris. Itinerários privados desde safaris de Grande Migração a viagens de lua de mel e extensões a Zanzibar.',
+            'og_description' => 'Pacotes privados de safari na Tanzânia, desde a Grande Migração a viagens de lua de mel e extensões a Zanzibar.',
+            'og_image'       => breeze_theme_media_url('photos/migration.jpg'),
+            'og_type'        => 'website',
+        ),
+        'politica-de-privacidade' => array(
+            'og_title'       => 'Política de Privacidade | Breeze Safaris',
+            'description'    => 'Política de privacidade da Breeze Safaris — como recolhemos, utilizamos e protegemos os seus dados pessoais.',
+            'og_description' => 'Como a Breeze Safaris trata as suas informações pessoais.',
+            'og_image'       => $default_og_image,
+            'og_type'        => 'website',
+            'robots'         => 'noindex,follow',
+        ),
+    );
+
+    if (isset($pt_named[$slug])) {
+        $p = $pt_named[$slug];
+        return array(
+            'description'    => $p['description'],
+            'canonical'      => $canonical,
+            'og_title'       => $p['og_title'],
+            'og_description' => $p['og_description'],
+            'og_image'       => $p['og_image'],
+            'og_type'        => isset($p['og_type'])  ? $p['og_type']  : 'website',
+            'robots'         => isset($p['robots'])   ? $p['robots']   : 'index,follow,max-image-preview:large,max-snippet:-1',
+        );
+    }
+
+    // PT generic fallback
+    return array(
+        'description'    => '',
+        'canonical'      => $canonical,
+        'og_title'       => get_the_title($post_id) . ' | Breeze Safaris',
+        'og_description' => '',
+        'og_image'       => $default_og_image,
+        'og_type'        => 'website',
+    );
+}

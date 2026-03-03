@@ -1,0 +1,16 @@
+# Breeze Safaris
+
+Official website for Tanzania safari planning and Zanzibar extensions.
+
+Primary pages:
+- https://breezesafaris.com/
+- https://breezesafaris.com/destinations/serengeti-national-park.html
+- https://breezesafaris.com/destinations/ngorongoro-conservation-area.html
+- https://breezesafaris.com/destinations/tarangire-national-park.html
+- https://breezesafaris.com/destinations/lake-manyara-national-park.html
+- https://breezesafaris.com/destinations/arusha-national-park.html
+- https://breezesafaris.com/destinations/ndutu-area.html
+- https://breezesafaris.com/destinations/zanzibar.html
+
+Contact:
+- info@breezesafaris.com
